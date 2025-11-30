@@ -1,14 +1,23 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { sidebarLinks } from "../../config";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
+import { FaChevronLeft, FaChevronRight, FaSignOutAlt } from "react-icons/fa";
+import firebaseSDK from "../../firebase/firebase.config";
 
 const Sidebar = ({ isOpen, setisOpen }) => {
     const { pathname } = useLocation();
+    const navigate = useNavigate();
     const toggle = () => setisOpen(prev => !prev);
 
+    const handleLogout = async () => {
+        try {
+            await firebaseSDK.auth.signOut();
+            navigate('/login');
+        } catch (error) {
+            console.error("Error signing out: ", error);
+        }
+    };
+
     return (
-
-
         <div className={`
                 fixed left-0 top-0 h-screen bg-white shadow-lg transition-all duration-300 ease-in-out z-40
                 border-r border-gray-200
@@ -59,8 +68,27 @@ const Sidebar = ({ isOpen, setisOpen }) => {
                     );
                 })}
             </div>
-        </div>
 
+            <div className="mt-auto p-4 border-t border-gray-200">
+                <button
+                    onClick={handleLogout}
+                    className={`
+                        w-full flex items-center rounded-lg px-3 py-3 transition-all duration-200
+                        text-red-600 hover:bg-red-50 hover:text-red-700
+                        ${isOpen ? "justify-start" : "justify-center"}
+                    `}
+                >
+                    <div className="flex-shrink-0">
+                        <FaSignOutAlt size={22} />
+                    </div>
+                    {isOpen && (
+                        <span className="ml-3 font-medium truncate">
+                            Logout
+                        </span>
+                    )}
+                </button>
+            </div>
+        </div>
     );
 };
 
