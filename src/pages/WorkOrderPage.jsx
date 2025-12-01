@@ -9,6 +9,7 @@ const WorkOrderPage = () => {
         workOrders,
         addWorkOrder,
         editWorkOrder,
+        markWorkOrderComplete,
         removeWorkOrder,
         printQuotation,
         calculateTotal,
@@ -24,7 +25,7 @@ const WorkOrderPage = () => {
 
     const handleMarkComplete = (id) => {
         if (window.confirm('Are you sure you want to mark this work order as completed?')) {
-            editWorkOrder(id, { status: 'Completed', completedDate: new Date().toISOString() });
+            markWorkOrderComplete(id);
         }
     };
 

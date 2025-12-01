@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
+import { fetchWorkers, fetchServiceItems, fetchInventoryItems } from '../redux/actions';
 
 const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
+    const dispatch = useDispatch();
+    const workers = useSelector(state => state.workers);
+    const serviceItems = useSelector(state => state.serviceItems);
+    const inventoryItems = useSelector(state => state.inventoryItems);
+
     const [formData, setFormData] = useState({
         customer: { name: '', phone: '' },
         vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
@@ -11,6 +18,13 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
     });
 
     const [total, setTotal] = useState(0);
+
+    // Fetch data when component mounts
+    useEffect(() => {
+        dispatch(fetchWorkers());
+        dispatch(fetchServiceItems());
+        dispatch(fetchInventoryItems());
+    }, [dispatch]);
 
     useEffect(() => {
         if (isOpen) {
@@ -242,7 +256,11 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                                 onChange={(e) => handleChange('job', 'worker', e.target.value)}
                             >
                                 <option value="">Optional</option>
-                                {/* Populate with workers if available */}
+                                {workers.map((worker) => (
+                                    <option key={worker.id} value={worker.id}>
+                                        {worker.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -322,9 +340,32 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                                         <select
                                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                             value={service.catalog}
-                                            onChange={(e) => handleServiceChange(index, 'catalog', e.target.value)}
+                                            onChange={(e) => {
+                                                handleServiceChange(index, 'catalog', e.target.value);
+                                                // Auto-fill details when catalog item is selected
+                                                if (e.target.value && e.target.value !== 'Optional') {
+                                                    const catalogItems = service.type === 'Service' ? serviceItems : inventoryItems;
+                                                    const selectedItem = catalogItems.find(item => item.id === e.target.value);
+                                                    if (selectedItem) {
+                                                        handleServiceChange(index, 'name', selectedItem.name || selectedItem.description || '');
+                                                        handleServiceChange(index, 'unitPrice', selectedItem.defaultPrice || selectedItem.unitPrice || 0);
+                                                    }
+                                                }
+                                            }}
                                         >
-                                            <option>Optional</option>
+                                            <option value="Optional">Optional</option>
+                                            {service.type === 'Service'
+                                                ? serviceItems.map((item) => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name} - RF {item.defaultPrice || 0}
+                                                    </option>
+                                                ))
+                                                : inventoryItems.map((item) => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name} - RF {item.unitPrice || 0}
+                                                    </option>
+                                                ))
+                                            }
                                         </select>
                                     </div>
                                     <div className="w-full md:w-1/3">

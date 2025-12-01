@@ -81,6 +81,7 @@ export const setWorkers = (workers) => {
 export const createWorkOrder = (workOrder) => async (dispatch) => {
     try {
         const docRef = await firebaseSDK.firestore.collection("WorkOrders").add(workOrder);
+        dispatch(fetchWorkOrders());
         return docRef.id;
     } catch (error) {
         console.error("Error creating work order:", error);
@@ -110,9 +111,28 @@ export const fetchCustomers = () => async (dispatch) => {
 export const createCustomer = (customer) => async (dispatch) => {
     try {
         const docRef = await firebaseSDK.firestore.collection("Customers").add(customer);
+        dispatch(fetchCustomers()); // Refresh list
         return docRef.id;
     } catch (error) {
         console.error("Error creating customer:", error);
+    }
+};
+
+export const updateCustomer = (id, data) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("Customers").doc(id).update(data);
+        await dispatch(fetchCustomers()); // Refresh list and wait
+    } catch (error) {
+        console.error("Error updating customer:", error);
+    }
+};
+
+export const deleteCustomer = (id) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("Customers").doc(id).delete();
+        dispatch(fetchCustomers()); // Refresh list
+    } catch (error) {
+        console.error("Error deleting customer:", error);
     }
 };
 
@@ -214,3 +234,67 @@ export const deleteInventoryItem = (id) => async (dispatch) => {
     }
 };
 
+
+export const fetchServiceItems = () => async (dispatch) => {
+    try {
+        const snapshot = await firebaseSDK.firestore.collection("ServiceItems").get();
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        dispatch(setServiceItems(items));
+    } catch (error) {
+        console.error("Error fetching service items:", error);
+    }
+};
+
+export const createServiceItem = (item) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("ServiceItems").add(item);
+        dispatch(fetchServiceItems()); // Refresh list
+    } catch (error) {
+        console.error("Error creating service item:", error);
+    }
+};
+
+export const updateServiceItem = (id, data) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("ServiceItems").doc(id).update(data);
+        dispatch(fetchServiceItems()); // Refresh list
+    } catch (error) {
+        console.error("Error updating service item:", error);
+    }
+};
+
+export const deleteServiceItem = (id) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("ServiceItems").doc(id).delete();
+        dispatch(fetchServiceItems()); // Refresh list
+    } catch (error) {
+        console.error("Error deleting service item:", error);
+    }
+};
+export const fetchSpendings = () => async (dispatch) => {
+    try {
+        const snapshot = await firebaseSDK.firestore.collection("Spendings").get();
+        const spendings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        dispatch(setSpendings(spendings));
+    } catch (error) {
+        console.error("Error fetching spendings:", error);
+    }
+};
+
+export const createSpending = (spending) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("Spendings").add(spending);
+        dispatch(fetchSpendings()); // Refresh list
+    } catch (error) {
+        console.error("Error creating spending:", error);
+    }
+};
+
+export const deleteSpending = (id) => async (dispatch) => {
+    try {
+        await firebaseSDK.firestore.collection("Spendings").doc(id).delete();
+        dispatch(fetchSpendings()); // Refresh list
+    } catch (error) {
+        console.error("Error deleting spending:", error);
+    }
+};

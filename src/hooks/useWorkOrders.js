@@ -5,7 +5,9 @@ import {
     updateWorkOrder,
     deleteWorkOrder,
     fetchCustomers,
-    createCustomer
+    createCustomer,
+    updateInventoryItem,
+    fetchInventoryItems
 } from '../redux/actions';
 import { useEffect } from 'react';
 
@@ -13,13 +15,15 @@ const useWorkOrders = () => {
     const dispatch = useDispatch();
     const workOrders = useSelector(state => state.workOrders);
     const customers = useSelector(state => state.customers);
+    const inventoryItems = useSelector(state => state.inventoryItems);
 
     useEffect(() => {
         // Initial fetch if needed, though pages usually trigger this.
         // We can keep it here to ensure data is always available when using the hook.
         if (workOrders.length === 0) dispatch(fetchWorkOrders());
         if (customers.length === 0) dispatch(fetchCustomers());
-    }, [dispatch, workOrders.length, customers.length]);
+        if (inventoryItems.length === 0) dispatch(fetchInventoryItems());
+    }, [dispatch, workOrders.length, customers.length, inventoryItems.length]);
 
     const getWorkOrders = () => {
         dispatch(fetchWorkOrders());
@@ -30,27 +34,39 @@ const useWorkOrders = () => {
         const newCustomer = {
             name: workOrderData.customer.name,
             phone: workOrderData.customer.phone,
+            vehicle: workOrderData.vehicle,
             createdAt: new Date().toISOString()
         };
         const customerId = await dispatch(createCustomer(newCustomer));
 
         // 2. Create Work Order
+        // Calculate costs from services
+        const services = workOrderData.services || [];
+        const partsCost = services.filter(s => s.type === 'Part').reduce((acc, s) => acc + (Number(s.unitPrice) * Number(s.quantity)), 0);
+        const labourCost = services.filter(s => s.type === 'Service').reduce((acc, s) => acc + (Number(s.unitPrice) * Number(s.quantity)), 0);
+        const parking = Number(workOrderData.financials.parking) || 0;
+        const taxes = Number(workOrderData.financials.taxes) || 0;
+        const discount = Number(workOrderData.financials.discount) || 0;
+
         const flatWorkOrder = {
             arrival: workOrderData.job.arrival,
             completedDate: null,
             createdAt: new Date().toISOString(),
             customerId: customerId,
             description: workOrderData.job.description,
-            discount: Number(workOrderData.financials.discount),
+            discount: discount,
             isHistorical: false,
-            labourCost: 0,
+            labourCost: labourCost,
             notes: workOrderData.vehicle.notes,
-            parkingCharge: Number(workOrderData.financials.parking),
-            partsCost: 0,
+            parkingCharge: parking,
+            partsCost: partsCost,
             quotedAt: new Date().toISOString(),
             status: 'Pending',
-            taxes: Number(workOrderData.financials.taxes),
-            _tempVehicle: workOrderData.vehicle
+            taxes: taxes,
+            _tempVehicle: workOrderData.vehicle,
+            lineItems: services,
+            totalAmount: labourCost + partsCost + parking + taxes - discount,
+            workerId: workOrderData.job.worker
         };
 
         return await dispatch(createWorkOrder(flatWorkOrder));
@@ -58,6 +74,26 @@ const useWorkOrders = () => {
 
     const editWorkOrder = async (id, updates) => {
         await dispatch(updateWorkOrder(id, updates));
+    };
+
+    const markWorkOrderComplete = async (id) => {
+        const workOrder = workOrders.find(wo => wo.id === id);
+        if (!workOrder || workOrder.status === 'Completed') return;
+
+        // Deduct inventory
+        if (workOrder.lineItems) {
+            for (const item of workOrder.lineItems) {
+                if (item.type === 'Part' && item.catalog && item.catalog !== 'Optional') {
+                    const inventoryItem = inventoryItems.find(i => i.id === item.catalog);
+                    if (inventoryItem) {
+                        const newQuantity = Math.max(0, (Number(inventoryItem.quantityOnHand) || 0) - (Number(item.quantity) || 0));
+                        await dispatch(updateInventoryItem(inventoryItem.id, { quantityOnHand: newQuantity }));
+                    }
+                }
+            }
+        }
+
+        await dispatch(updateWorkOrder(id, { status: 'Completed', completedDate: new Date().toISOString() }));
     };
 
     const removeWorkOrder = async (id) => {
@@ -121,6 +157,8 @@ const useWorkOrders = () => {
         getWorkOrders,
         addWorkOrder,
         editWorkOrder,
+        markWorkOrderComplete,
+        removeWorkOrder,
         removeWorkOrder,
         printQuotation,
         calculateTotal,
