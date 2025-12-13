@@ -3,8 +3,7 @@ import { FaTimes } from 'react-icons/fa';
 
 const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
     const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
+        name: '',
         phone: '',
         email: '',
         notes: '',
@@ -12,15 +11,17 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
         make: '',
         model: '',
         year: new Date().getFullYear(),
-        plate: ''
+        plate: '',
+        paidAmount: 0,
+        totalBilled: 0,
+        outstandingBalance: 0
     });
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 setFormData({
-                    firstName: initialData.firstName || '',
-                    lastName: initialData.lastName || '',
+                    name: initialData.name || '',
                     phone: initialData.phone || '',
                     email: initialData.email || '',
                     notes: initialData.notes || '',
@@ -28,13 +29,15 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                     make: initialData.vehicle?.make || '',
                     model: initialData.vehicle?.model || '',
                     year: initialData.vehicle?.year || new Date().getFullYear(),
-                    plate: initialData.vehicle?.plate || ''
+                    plate: initialData.vehicle?.plate || '',
+                    paidAmount: initialData.paidAmount || 0,
+                    totalBilled: initialData.totalBilled || 0,
+                    outstandingBalance: initialData.outstandingBalance || 0
                 });
             } else {
                 // Reset form when modal opens in add mode
                 setFormData({
-                    firstName: '',
-                    lastName: '',
+                    name: '',
                     phone: '',
                     email: '',
                     notes: '',
@@ -42,7 +45,10 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                     make: '',
                     model: '',
                     year: new Date().getFullYear(),
-                    plate: ''
+                    plate: '',
+                    paidAmount: 0,
+                    totalBilled: 0,
+                    outstandingBalance: 0
                 });
             }
         }
@@ -52,7 +58,16 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const updated = { ...prev, [name]: value };
+            // Recalculate outstanding balance when paidAmount or totalBilled changes
+            if (name === 'paidAmount' || name === 'totalBilled') {
+                const paid = parseFloat(updated.paidAmount) || 0;
+                const billed = parseFloat(updated.totalBilled) || 0;
+                updated.outstandingBalance = Math.max(0, billed - paid);
+            }
+            return updated;
+        });
     };
 
     const handleSubmit = (e) => {
@@ -77,33 +92,19 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                     <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">Customer</h3>
 
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    First Name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="firstName"
-                                    value={formData.firstName}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Last Name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="lastName"
-                                    value={formData.lastName}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Full Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                required
+                                placeholder="Enter customer full name"
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            />
                         </div>
 
                         <div className="mb-4">
@@ -215,6 +216,53 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                                     onChange={handleChange}
                                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Section */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Payment Information</h3>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Total Billed (RF)
+                                </label>
+                                <input
+                                    type="number"
+                                    name="totalBilled"
+                                    value={formData.totalBilled || ''}
+                                    onChange={handleChange}
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Paid Amount (RF)
+                                </label>
+                                <input
+                                    type="number"
+                                    name="paidAmount"
+                                    value={formData.paidAmount || ''}
+                                    onChange={handleChange}
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-700">Outstanding Balance:</span>
+                                <span className={`text-lg font-bold ${formData.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    RF {formData.outstandingBalance.toLocaleString()}
+                                </span>
                             </div>
                         </div>
                     </div>

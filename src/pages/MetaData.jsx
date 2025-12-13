@@ -20,25 +20,26 @@ const MetaData = () => {
   const handleAddMetadata = async (formData) => {
     // Combine customer and vehicle data
     const customerData = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      name: `${formData.firstName} ${formData.lastName}`,
-      phone: formData.phone,
-      email: formData.email,
-      notes: formData.notes,
+      name: formData.name.trim(),
+      phone: formData.phone || '',
+      email: formData.email || '',
+      notes: formData.notes || '',
       vehicle: {
-        vin: formData.vin,
-        make: formData.make,
-        model: formData.model,
-        year: formData.year,
-        plate: formData.plate
+        vin: formData.vin || '',
+        make: formData.make || '',
+        model: formData.model || '',
+        year: formData.year || new Date().getFullYear(),
+        plate: formData.plate || ''
       },
-      // Preserve existing fields if editing, or set defaults for new
-      outstandingBalance: selectedCustomer ? selectedCustomer.outstandingBalance : 0,
-      activeWorkOrders: selectedCustomer ? selectedCustomer.activeWorkOrders : 0,
-      totalWorkOrders: selectedCustomer ? selectedCustomer.totalWorkOrders : 0,
-      recentWorkOrders: selectedCustomer ? selectedCustomer.recentWorkOrders : [],
-      createdAt: selectedCustomer ? selectedCustomer.createdAt : new Date().toISOString()
+      // Payment information
+      paidAmount: parseFloat(formData.paidAmount) || 0,
+      totalBilled: parseFloat(formData.totalBilled) || 0,
+      outstandingBalance: parseFloat(formData.outstandingBalance) || 0,
+      // Preserve other existing fields - use || 0 or || [] to avoid undefined
+      activeWorkOrders: (selectedCustomer && selectedCustomer.activeWorkOrders) || 0,
+      totalWorkOrders: (selectedCustomer && selectedCustomer.totalWorkOrders) || 0,
+      recentWorkOrders: (selectedCustomer && selectedCustomer.recentWorkOrders) || [],
+      createdAt: (selectedCustomer && selectedCustomer.createdAt) || new Date().toISOString()
     };
 
     if (selectedCustomer) {
@@ -167,12 +168,25 @@ const MetaData = () => {
                 </span>
               </div>
 
-              {/* Outstanding Balance */}
+              {/* Payment Info */}
               <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-500 mb-1">Outstanding Balance</p>
-                <p className="text-sm font-bold text-gray-800">
-                  RF {customer.outstandingBalance || 0}
-                </p>
+                <p className="text-xs text-gray-500 mb-2">Payment Information</p>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Total Billed:</span>
+                    <span className="font-medium text-gray-800">RF {(customer.totalBilled || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Paid Amount:</span>
+                    <span className="font-medium text-green-600">RF {(customer.paidAmount || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
+                    <span className="text-gray-700 font-medium">Outstanding:</span>
+                    <span className={`font-bold ${(customer.outstandingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      RF {(customer.outstandingBalance || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Recent Work Orders */}

@@ -47,6 +47,10 @@ const useWorkOrders = () => {
         const parking = Number(workOrderData.financials.parking) || 0;
         const taxes = Number(workOrderData.financials.taxes) || 0;
         const discount = Number(workOrderData.financials.discount) || 0;
+        const amountReceived = Number(workOrderData.financials.amountReceived) || 0;
+
+        const totalAmount = labourCost + partsCost + parking + taxes - discount;
+        const outstandingBalance = Math.max(0, totalAmount - amountReceived);
 
         const flatWorkOrder = {
             arrival: workOrderData.job.arrival,
@@ -65,7 +69,9 @@ const useWorkOrders = () => {
             taxes: taxes,
             _tempVehicle: workOrderData.vehicle,
             lineItems: services,
-            totalAmount: labourCost + partsCost + parking + taxes - discount,
+            totalAmount: totalAmount,
+            amountReceived: amountReceived,
+            outstandingBalance: outstandingBalance,
             workerId: workOrderData.job.worker
         };
 

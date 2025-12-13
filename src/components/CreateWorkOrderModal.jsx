@@ -13,7 +13,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
         customer: { name: '', phone: '' },
         vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
         job: { description: '', arrival: '', scheduled: '', worker: '', internalNotes: '' },
-        financials: { parking: 0, taxes: 0, discount: 0 },
+        financials: { parking: 0, taxes: 0, discount: 0, amountReceived: 0 },
         services: []
     });
 
@@ -33,7 +33,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                 customer: { name: '', phone: '' },
                 vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
                 job: { description: '', arrival: new Date().toISOString().slice(0, 16), scheduled: '', worker: '', internalNotes: '' },
-                financials: { parking: 0, taxes: 0, discount: 0 },
+                financials: { parking: 0, taxes: 0, discount: 0, amountReceived: 0 },
                 services: [{ type: 'Service', catalog: 'Optional', name: '', quantity: 1, unitPrice: 0 }]
             });
         }
@@ -277,7 +277,8 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Financials */}
                     <section>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Financials</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Parking Charge</label>
                                 <input
@@ -303,6 +304,16 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                                     className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
                                     value={formData.financials.discount}
                                     onChange={(e) => handleChange('financials', 'discount', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Amount Received (RF)</label>
+                                <input
+                                    type="number"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                                    placeholder="0"
+                                    value={formData.financials.amountReceived || ''}
+                                    onChange={(e) => handleChange('financials', 'amountReceived', e.target.value)}
                                 />
                             </div>
                         </div>
@@ -410,9 +421,22 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Summary */}
                     <section className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Summary</h3>
-                        <div className="text-sm text-gray-600 space-y-1">
-                            <p>Total: <span className="font-bold text-blue-600 text-lg">RF {total.toFixed(2)}</span></p>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Summary</h3>
+                        <div className="text-sm text-gray-600 space-y-2">
+                            <div className="flex justify-between">
+                                <span>Total:</span>
+                                <span className="font-bold text-blue-600 text-lg">RF {total.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Amount Received:</span>
+                                <span className="font-medium text-green-600">RF {(Number(formData.financials.amountReceived) || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-gray-200">
+                                <span className="font-medium">Outstanding Balance:</span>
+                                <span className={`font-bold text-lg ${(total - (Number(formData.financials.amountReceived) || 0)) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    RF {Math.max(0, total - (Number(formData.financials.amountReceived) || 0)).toFixed(2)}
+                                </span>
+                            </div>
                         </div>
                     </section>
 
