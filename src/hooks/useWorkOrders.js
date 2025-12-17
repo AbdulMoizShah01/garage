@@ -46,10 +46,11 @@ const useWorkOrders = () => {
         const labourCost = services.filter(s => s.type === 'Service').reduce((acc, s) => acc + (Number(s.unitPrice) * Number(s.quantity)), 0);
         const parking = Number(workOrderData.financials.parking) || 0;
         const taxes = Number(workOrderData.financials.taxes) || 0;
+        const vat = Number(workOrderData.financials.vat) || 0;
         const discount = Number(workOrderData.financials.discount) || 0;
         const amountReceived = Number(workOrderData.financials.amountReceived) || 0;
 
-        const totalAmount = labourCost + partsCost + parking + taxes - discount;
+        const totalAmount = labourCost + partsCost + parking + taxes + vat - discount;
         const outstandingBalance = Math.max(0, totalAmount - amountReceived);
 
         const flatWorkOrder = {
@@ -67,7 +68,10 @@ const useWorkOrders = () => {
             quotedAt: new Date().toISOString(),
             status: 'Pending',
             taxes: taxes,
+            vat: vat,
             _tempVehicle: workOrderData.vehicle,
+            _tempCustomerName: workOrderData.customer.name,
+            _tempCustomerPhone: workOrderData.customer.phone,
             lineItems: services,
             totalAmount: totalAmount,
             amountReceived: amountReceived,
@@ -120,10 +124,9 @@ const useWorkOrders = () => {
         // Calculate totals
         const lineItems = workOrder.lineItems || [];
         const subtotal = lineItems.reduce((acc, item) => acc + (Number(item.unitPrice) * Number(item.quantity)), 0);
-        const labourCost = Number(workOrder.labourCost) || 0;
-        const amount = subtotal + labourCost;
-        const vatRate = 0.18;
-        const vatAmount = amount * vatRate;
+        const parkingCharge = Number(workOrder.parkingCharge) || 0;
+        const amount = subtotal + parkingCharge;
+        const vatAmount = Number(workOrder.vat) || 0;
         const discount = Number(workOrder.discount) || 0;
         const discountPercent = amount > 0 ? ((discount / amount) * 100).toFixed(0) : 0;
         const totalAmount = amount + vatAmount - discount;
@@ -143,18 +146,6 @@ const useWorkOrders = () => {
                     </tr>
                 `;
             });
-            // Add Labour row if exists
-            if (labourCost > 0) {
-                const bgColor = lineItems.length % 2 === 0 ? '#e6f3ff' : '#ffffff';
-                rows += `
-                    <tr style="background-color: ${bgColor};">
-                        <td style="border: 1px solid #ccc; padding: 8px 12px; text-align: left;">LABOUR</td>
-                        <td style="border: 1px solid #ccc; padding: 8px 12px; text-align: center;"></td>
-                        <td style="border: 1px solid #ccc; padding: 8px 12px; text-align: center;"></td>
-                        <td style="border: 1px solid #ccc; padding: 8px 12px; text-align: right;">${labourCost.toLocaleString()}</td>
-                    </tr>
-                `;
-            }
             return rows;
         };
 
@@ -456,8 +447,9 @@ const useWorkOrders = () => {
         const parts = Number(wo.partsCost) || 0;
         const parking = Number(wo.parkingCharge) || 0;
         const taxes = Number(wo.taxes) || 0;
+        const vat = Number(wo.vat) || 0;
         const discount = Number(wo.discount) || 0;
-        return labour + parts + parking + taxes - discount;
+        return labour + parts + parking + taxes + vat - discount;
     };
 
     const getCustomerName = (customerId, wo) => {

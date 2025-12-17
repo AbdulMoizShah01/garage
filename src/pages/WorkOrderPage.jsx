@@ -5,6 +5,7 @@ import useWorkOrders from '../hooks/useWorkOrders';
 
 const WorkOrderPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingWorkOrder, setEditingWorkOrder] = useState(null);
     const {
         workOrders,
         addWorkOrder,
@@ -21,6 +22,59 @@ const WorkOrderPage = () => {
     const handleCreateWorkOrder = async (newWorkOrder) => {
         await addWorkOrder(newWorkOrder);
         setIsModalOpen(false);
+        setEditingWorkOrder(null);
+    };
+
+    const handleEditWorkOrder = async (id, updatedData) => {
+        // Recalculate totals from updated form data
+        const services = updatedData.services || [];
+        const partsCost = services.filter(s => s.type === 'Part').reduce((acc, s) => acc + (Number(s.unitPrice) * Number(s.quantity)), 0);
+        const labourCost = services.filter(s => s.type === 'Service').reduce((acc, s) => acc + (Number(s.unitPrice) * Number(s.quantity)), 0);
+        const parking = Number(updatedData.financials.parking) || 0;
+        const taxes = Number(updatedData.financials.taxes) || 0;
+        const vat = Number(updatedData.financials.vat) || 0;
+        const discount = Number(updatedData.financials.discount) || 0;
+        const amountReceived = Number(updatedData.financials.amountReceived) || 0;
+
+        const totalAmount = labourCost + partsCost + parking + taxes + vat - discount;
+        const outstandingBalance = Math.max(0, totalAmount - amountReceived);
+
+        const updates = {
+            description: updatedData.job.description,
+            arrival: updatedData.job.arrival,
+            scheduled: updatedData.job.scheduled,
+            workerId: updatedData.job.worker,
+            internalNotes: updatedData.job.internalNotes,
+            _tempVehicle: updatedData.vehicle,
+            _tempCustomerName: updatedData.customer.name,
+            _tempCustomerPhone: updatedData.customer.phone,
+            lineItems: services,
+            labourCost: labourCost,
+            partsCost: partsCost,
+            parkingCharge: parking,
+            taxes: taxes,
+            vat: vat,
+            discount: discount,
+            amountReceived: amountReceived,
+            totalAmount: totalAmount,
+            outstandingBalance: outstandingBalance,
+            notes: updatedData.vehicle.notes
+        };
+
+        await editWorkOrder(id, updates);
+        setIsModalOpen(false);
+        setEditingWorkOrder(null);
+    };
+
+    const handleOpenEdit = (wo) => {
+        // Prepare work order with customer info for the modal
+        const workOrderWithCustomerInfo = {
+            ...wo,
+            _tempCustomerName: getCustomerName(wo.customerId, wo),
+            _tempCustomerPhone: wo._tempCustomerPhone || ''
+        };
+        setEditingWorkOrder(workOrderWithCustomerInfo);
+        setIsModalOpen(true);
     };
 
     const handleMarkComplete = (id) => {
@@ -112,6 +166,13 @@ const WorkOrderPage = () => {
                                         <td className="px-6 py-4 text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
                                                 <button
+                                                    onClick={() => handleOpenEdit(wo)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit size={16} />
+                                                </button>
+                                                <button
                                                     onClick={() => handleMarkComplete(wo.id)}
                                                     className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                     title="Mark Complete"
@@ -144,8 +205,13 @@ const WorkOrderPage = () => {
 
             <CreateWorkOrderModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setEditingWorkOrder(null);
+                }}
                 onCreate={handleCreateWorkOrder}
+                workOrder={editingWorkOrder}
+                onEdit={handleEditWorkOrder}
             />
         </div>
     );

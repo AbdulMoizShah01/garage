@@ -3,17 +3,19 @@ import { useSelector, useDispatch } from 'react-redux';
 import { FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
 import { fetchWorkers, fetchServiceItems, fetchInventoryItems } from '../redux/actions';
 
-const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
+const CreateWorkOrderModal = ({ isOpen, onClose, onCreate, workOrder, onEdit }) => {
     const dispatch = useDispatch();
     const workers = useSelector(state => state.workers);
     const serviceItems = useSelector(state => state.serviceItems);
     const inventoryItems = useSelector(state => state.inventoryItems);
 
+    const isEditMode = !!workOrder;
+
     const [formData, setFormData] = useState({
         customer: { name: '', phone: '' },
         vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
         job: { description: '', arrival: '', scheduled: '', worker: '', internalNotes: '' },
-        financials: { parking: 0, taxes: 0, discount: 0, amountReceived: 0 },
+        financials: { parking: 0, taxes: 0, vat: 0, discount: 0, amountReceived: 0 },
         services: []
     });
 
@@ -28,16 +30,44 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
 
     useEffect(() => {
         if (isOpen) {
-            // Reset form when modal opens
-            setFormData({
-                customer: { name: '', phone: '' },
-                vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
-                job: { description: '', arrival: new Date().toISOString().slice(0, 16), scheduled: '', worker: '', internalNotes: '' },
-                financials: { parking: 0, taxes: 0, discount: 0, amountReceived: 0 },
-                services: [{ type: 'Service', catalog: 'Optional', name: '', quantity: 1, unitPrice: 0 }]
-            });
+            if (workOrder) {
+                // Populate form with existing work order data for editing
+                setFormData({
+                    customer: {
+                        name: workOrder._tempCustomerName || '',
+                        phone: workOrder._tempCustomerPhone || ''
+                    },
+                    vehicle: workOrder._tempVehicle || { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
+                    job: {
+                        description: workOrder.description || '',
+                        arrival: workOrder.arrival ? workOrder.arrival.slice(0, 16) : '',
+                        scheduled: workOrder.scheduled || '',
+                        worker: workOrder.workerId || '',
+                        internalNotes: workOrder.internalNotes || ''
+                    },
+                    financials: {
+                        parking: workOrder.parkingCharge || 0,
+                        taxes: workOrder.taxes || 0,
+                        vat: workOrder.vat || 0,
+                        discount: workOrder.discount || 0,
+                        amountReceived: workOrder.amountReceived || 0
+                    },
+                    services: workOrder.lineItems && workOrder.lineItems.length > 0
+                        ? workOrder.lineItems
+                        : [{ type: 'Service', catalog: 'Optional', name: '', quantity: 1, unitPrice: 0 }]
+                });
+            } else {
+                // Reset form when modal opens for create
+                setFormData({
+                    customer: { name: '', phone: '' },
+                    vehicle: { vin: '', make: '', model: '', year: '', color: '', plate: '', notes: '' },
+                    job: { description: '', arrival: new Date().toISOString().slice(0, 16), scheduled: '', worker: '', internalNotes: '' },
+                    financials: { parking: 0, taxes: 0, vat: 0, discount: 0, amountReceived: 0 },
+                    services: [{ type: 'Service', catalog: 'Optional', name: '', quantity: 1, unitPrice: 0 }]
+                });
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, workOrder]);
 
     useEffect(() => {
         calculateTotal();
@@ -46,12 +76,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
     const calculateTotal = () => {
         const servicesTotal = formData.services.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0);
         const subtotal = servicesTotal + Number(formData.financials.parking);
-        const taxAmount = (subtotal * Number(formData.financials.taxes)) / 100; // Assuming taxes is percentage, or is it flat? Image shows "Taxes: RF 0", likely flat or calculated elsewhere. Let's assume flat for now based on input field "Taxes". Wait, usually taxes are %. But input just says "Taxes". Let's assume it's a value for now.
-        // Actually, looking at the image "Taxes: RF 0", it might be a calculated value. But there is an input field for "Taxes".
-        // Let's assume the input is for Tax Amount directly for simplicity, or Tax Rate.
-        // Given "Taxes" input, I'll treat it as a direct amount to add.
-
-        const totalAmount = subtotal + Number(formData.financials.taxes) - Number(formData.financials.discount);
+        const totalAmount = subtotal + Number(formData.financials.taxes) + Number(formData.financials.vat) - Number(formData.financials.discount);
         setTotal(totalAmount);
     };
 
@@ -85,7 +110,11 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onCreate({ ...formData, total });
+        if (isEditMode) {
+            onEdit(workOrder.id, { ...formData, total });
+        } else {
+            onCreate({ ...formData, total });
+        }
     };
 
     if (!isOpen) return null;
@@ -94,7 +123,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                    <h2 className="text-2xl font-bold text-gray-800">Create Work Order</h2>
+                    <h2 className="text-2xl font-bold text-gray-800">{isEditMode ? 'Edit Work Order' : 'Create Work Order'}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <FaTimes size={20} className="text-gray-500" />
                     </button>
@@ -278,7 +307,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                     {/* Financials */}
                     <section>
                         <h3 className="text-lg font-semibold text-gray-700 mb-4">Financials</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Parking Charge</label>
                                 <input
@@ -295,6 +324,16 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                                     className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
                                     value={formData.financials.taxes}
                                     onChange={(e) => handleChange('financials', 'taxes', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">VAT</label>
+                                <input
+                                    type="number"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                                    placeholder="0"
+                                    value={formData.financials.vat}
+                                    onChange={(e) => handleChange('financials', 'vat', e.target.value)}
                                 />
                             </div>
                             <div>
@@ -424,6 +463,14 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Summary</h3>
                         <div className="text-sm text-gray-600 space-y-2">
                             <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span className="font-medium">RF {(formData.services.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0) + Number(formData.financials.parking)).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>VAT:</span>
+                                <span className="font-medium">RF {(Number(formData.financials.vat) || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span>Total:</span>
                                 <span className="font-bold text-blue-600 text-lg">RF {total.toFixed(2)}</span>
                             </div>
@@ -452,7 +499,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, onCreate }) => {
                             type="submit"
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-200"
                         >
-                            Create Work Order
+                            {isEditMode ? 'Update Work Order' : 'Create Work Order'}
                         </button>
                     </div>
                 </form>
