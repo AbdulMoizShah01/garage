@@ -67,6 +67,28 @@ const MetaData = () => {
     }
   };
 
+  // Helper function to calculate payment summary
+  // Uses stored customer paidAmount (editable) and computes totalBilled from work orders
+  const getCustomerPaymentSummary = (customer) => {
+    const customerWorkOrders = workOrders.filter(wo => wo.customerId === customer.id);
+
+    // Calculate total billed from all work orders
+    const totalBilledFromWO = customerWorkOrders.reduce((sum, wo) => {
+      return sum + (Number(wo.totalAmount) || 0);
+    }, 0);
+
+    // Use the stored totalBilled if it exists, otherwise use computed from work orders
+    const totalBilled = customer.totalBilled > 0 ? Number(customer.totalBilled) : totalBilledFromWO;
+
+    // Use the stored paid amount from customer (this is editable in metadata form)
+    const paidAmount = Number(customer.paidAmount) || 0;
+
+    // Calculate outstanding balance based on stored/computed values
+    const outstandingBalance = Math.max(0, totalBilled - paidAmount);
+
+    return { totalBilled, paidAmount, outstandingBalance, totalBilledFromWO };
+  };
+
   const filteredCustomers = customers.filter(customer => {
     const searchLower = searchQuery.toLowerCase();
     return (
@@ -159,35 +181,47 @@ const MetaData = () => {
               </div>
 
               {/* Status Badges */}
-              <div className="flex gap-2 mb-4">
-                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md font-medium">
-                  {customer.activeWorkOrders || 0} active
-                </span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md font-medium">
-                  {customer.totalWorkOrders || 0} total
-                </span>
-              </div>
-
-              {/* Payment Info */}
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-500 mb-2">Payment Information</p>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Billed:</span>
-                    <span className="font-medium text-gray-800">RF {(customer.totalBilled || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Paid Amount:</span>
-                    <span className="font-medium text-green-600">RF {(customer.paidAmount || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
-                    <span className="text-gray-700 font-medium">Outstanding:</span>
-                    <span className={`font-bold ${(customer.outstandingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      RF {(customer.outstandingBalance || 0).toLocaleString()}
+              {(() => {
+                const customerWOs = workOrders.filter(wo => wo.customerId === customer.id);
+                const activeCount = customerWOs.filter(wo => wo.status !== 'Completed').length;
+                const totalCount = customerWOs.length;
+                return (
+                  <div className="flex gap-2 mb-4">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md font-medium">
+                      {activeCount} active
+                    </span>
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md font-medium">
+                      {totalCount} total
                     </span>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
+
+              {/* Payment Info */}
+              {(() => {
+                const paymentSummary = getCustomerPaymentSummary(customer);
+                return (
+                  <div className="mb-4 pb-4 border-b border-gray-100">
+                    <p className="text-xs text-gray-500 mb-2">Payment Information (from Work Orders)</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total Billed:</span>
+                        <span className="font-medium text-gray-800">RF {paymentSummary.totalBilled.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Paid Amount:</span>
+                        <span className="font-medium text-green-600">RF {paymentSummary.paidAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
+                        <span className="text-gray-700 font-medium">Outstanding:</span>
+                        <span className={`font-bold ${paymentSummary.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          RF {paymentSummary.outstandingBalance.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Recent Work Orders */}
               <div>
@@ -225,6 +259,7 @@ const MetaData = () => {
         onClose={handleCloseModal}
         onAdd={handleAddMetadata}
         initialData={selectedCustomer}
+        workOrders={workOrders}
       />
     </div>
   );

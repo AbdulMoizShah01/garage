@@ -128,7 +128,7 @@ const InsightsPage = () => {
             return sum + (wo.lineItems?.filter(i => i.type === 'Service').length || 0);
         }, 0);
         const partsSold = recentWorkOrders.reduce((sum, wo) => {
-            return sum + (wo.lineItems?.filter(i => i.type === 'Part').reduce((s, i) => s + (i.quantity || 1), 0) || 0);
+            return sum + (wo.lineItems?.filter(i => i.type === 'Part').reduce((s, i) => s + (Number(i.quantity) || 1), 0) || 0);
         }, 0);
 
         return {
@@ -327,7 +327,7 @@ const InsightsPage = () => {
                     </div>
                     <p className="text-2xl font-bold text-gray-800 mb-1">{metrics.partsSold}</p>
                     <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <span>Line items sold</span>
+                        <span>Total quantity sold (6 mo)</span>
                         <FaInfoCircle size={10} />
                     </div>
                 </div>

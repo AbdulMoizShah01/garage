@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { FaTimes } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FaTimes, FaInfoCircle } from 'react-icons/fa';
 
-const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
+const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null, workOrders = [] }) => {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -17,6 +17,26 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
         outstandingBalance: 0
     });
 
+    // Compute payment summary from work orders for this customer
+    const paymentSummary = useMemo(() => {
+        if (!initialData?.id) {
+            return { totalBilled: 0, paidAmount: 0, outstandingBalance: 0 };
+        }
+        const customerWorkOrders = workOrders.filter(wo => wo.customerId === initialData.id);
+
+        const totalBilled = customerWorkOrders.reduce((sum, wo) => {
+            return sum + (Number(wo.totalAmount) || 0);
+        }, 0);
+
+        const paidAmount = customerWorkOrders.reduce((sum, wo) => {
+            return sum + (Number(wo.amountReceived) || 0);
+        }, 0);
+
+        const outstandingBalance = Math.max(0, totalBilled - paidAmount);
+
+        return { totalBilled, paidAmount, outstandingBalance };
+    }, [initialData?.id, workOrders]);
+
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
@@ -30,9 +50,10 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                     model: initialData.vehicle?.model || '',
                     year: initialData.vehicle?.year || new Date().getFullYear(),
                     plate: initialData.vehicle?.plate || '',
-                    paidAmount: initialData.paidAmount || 0,
-                    totalBilled: initialData.totalBilled || 0,
-                    outstandingBalance: initialData.outstandingBalance || 0
+                    // Initialize with computed values from work orders, or use saved values as fallback
+                    paidAmount: paymentSummary.paidAmount || initialData.paidAmount || 0,
+                    totalBilled: paymentSummary.totalBilled || initialData.totalBilled || 0,
+                    outstandingBalance: paymentSummary.outstandingBalance || initialData.outstandingBalance || 0
                 });
             } else {
                 // Reset form when modal opens in add mode
@@ -52,7 +73,7 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                 });
             }
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, paymentSummary]);
 
     if (!isOpen) return null;
 
@@ -224,6 +245,32 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                     <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">Payment Information</h3>
 
+                        {/* Show computed values from work orders if in edit mode */}
+                        {initialData && (paymentSummary.totalBilled > 0 || paymentSummary.paidAmount > 0) && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                                <div className="flex items-start gap-2 mb-2">
+                                    <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0" size={14} />
+                                    <p className="text-xs text-blue-700 font-medium">From Work Order History:</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div className="text-center">
+                                        <p className="text-gray-500">Billed</p>
+                                        <p className="font-medium text-gray-800">RF {paymentSummary.totalBilled.toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-gray-500">Paid</p>
+                                        <p className="font-medium text-green-600">RF {paymentSummary.paidAmount.toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-gray-500">Outstanding</p>
+                                        <p className={`font-medium ${paymentSummary.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            RF {paymentSummary.outstandingBalance.toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -261,7 +308,7 @@ const AddMetadataModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-gray-700">Outstanding Balance:</span>
                                 <span className={`text-lg font-bold ${formData.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                    RF {formData.outstandingBalance.toLocaleString()}
+                                    RF {(formData.outstandingBalance || 0).toLocaleString()}
                                 </span>
                             </div>
                         </div>

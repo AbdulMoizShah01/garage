@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { FaPlus, FaSearch, FaEdit, FaCheck, FaTrash, FaPrint } from 'react-icons/fa';
 import CreateWorkOrderModal from '../components/CreateWorkOrderModal';
 import useWorkOrders from '../hooks/useWorkOrders';
+import { fetchCustomers } from '../redux/actions';
 
 const WorkOrderPage = () => {
+    const dispatch = useDispatch();
+    const customers = useSelector(state => state.customers || []);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingWorkOrder, setEditingWorkOrder] = useState(null);
     const {
@@ -16,6 +20,10 @@ const WorkOrderPage = () => {
         calculateTotal,
         getCustomerName
     } = useWorkOrders();
+
+    useEffect(() => {
+        dispatch(fetchCustomers());
+    }, [dispatch]);
 
     const pendingWorkOrders = workOrders.filter(wo => wo.status !== 'Completed');
 
@@ -93,6 +101,17 @@ const WorkOrderPage = () => {
         return wo._tempVehicle ? `${wo._tempVehicle.make} ${wo._tempVehicle.model}` : 'N/A';
     };
 
+    // Get customer's outstanding balance from their stored payment data
+    const getCustomerOutstanding = (customerId) => {
+        const customer = customers.find(c => c.id === customerId);
+        if (!customer) return 0;
+
+        // Calculate from stored values
+        const totalBilled = Number(customer.totalBilled) || 0;
+        const paidAmount = Number(customer.paidAmount) || 0;
+        return Math.max(0, totalBilled - paidAmount);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -132,13 +151,14 @@ const WorkOrderPage = () => {
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vehicle</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Arrival</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Outstanding</th>
                                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {pendingWorkOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                                         No active work orders. Capture one above to get started.
                                     </td>
                                 </tr>
@@ -162,6 +182,16 @@ const WorkOrderPage = () => {
                                         </td>
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                             RF {calculateTotal(wo).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium">
+                                            {(() => {
+                                                const outstanding = getCustomerOutstanding(wo.customerId);
+                                                return (
+                                                    <span className={outstanding > 0 ? 'text-red-600' : 'text-green-600'}>
+                                                        RF {outstanding.toLocaleString()}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">

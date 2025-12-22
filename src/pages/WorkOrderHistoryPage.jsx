@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { FaSearch, FaPrint, FaTrash } from 'react-icons/fa';
 import useWorkOrders from '../hooks/useWorkOrders';
+import { fetchCustomers } from '../redux/actions';
 
 const WorkOrderHistoryPage = () => {
+    const dispatch = useDispatch();
+    const customers = useSelector(state => state.customers || []);
     const {
         workOrders,
         removeWorkOrder,
@@ -10,6 +14,10 @@ const WorkOrderHistoryPage = () => {
         calculateTotal,
         getCustomerName
     } = useWorkOrders();
+
+    useEffect(() => {
+        dispatch(fetchCustomers());
+    }, [dispatch]);
 
     const completedWorkOrders = workOrders.filter(wo => wo.status === 'Completed');
 
@@ -21,6 +29,17 @@ const WorkOrderHistoryPage = () => {
 
     const getVehicleInfo = (wo) => {
         return wo._tempVehicle ? `${wo._tempVehicle.make} ${wo._tempVehicle.model}` : 'N/A';
+    };
+
+    // Get customer's outstanding balance from their stored payment data
+    const getCustomerOutstanding = (customerId) => {
+        const customer = customers.find(c => c.id === customerId);
+        if (!customer) return 0;
+
+        // Calculate from stored values
+        const totalBilled = Number(customer.totalBilled) || 0;
+        const paidAmount = Number(customer.paidAmount) || 0;
+        return Math.max(0, totalBilled - paidAmount);
     };
 
     return (
@@ -56,13 +75,14 @@ const WorkOrderHistoryPage = () => {
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vehicle</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Completed Date</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Outstanding</th>
                                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {completedWorkOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                                         No completed work orders found.
                                     </td>
                                 </tr>
@@ -86,6 +106,16 @@ const WorkOrderHistoryPage = () => {
                                         </td>
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                             RF {calculateTotal(wo).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium">
+                                            {(() => {
+                                                const outstanding = getCustomerOutstanding(wo.customerId);
+                                                return (
+                                                    <span className={outstanding > 0 ? 'text-red-600' : 'text-green-600'}>
+                                                        RF {outstanding.toLocaleString()}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
